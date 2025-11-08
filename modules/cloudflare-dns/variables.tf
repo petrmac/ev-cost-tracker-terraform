@@ -31,3 +31,9 @@ variable "enable_page_rules" {
   type        = bool
   default     = false
 }
+
+variable "manage_zone_settings" {
+  description = "Manage zone settings (requires Zone:Settings:Edit permission)"
+  type        = bool
+  default     = false
+}

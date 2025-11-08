@@ -42,11 +42,11 @@ resource "google_container_cluster" "autopilot" {
   logging_service    = "logging.googleapis.com/kubernetes"
   monitoring_service = "monitoring.googleapis.com/kubernetes"
 
-  # Maintenance window - Sunday 03:00 UTC
+  # Maintenance window - Sunday 03:00-07:00 UTC
   maintenance_policy {
     recurring_window {
-      start_time = "2024-01-07T03:00:00Z"
-      end_time   = "2024-01-07T07:00:00Z"
+      start_time = "2025-01-05T03:00:00Z"  # Next Sunday from now
+      end_time   = "2025-01-05T07:00:00Z"
       recurrence = "FREQ=WEEKLY;BYDAY=SU"
     }
   }

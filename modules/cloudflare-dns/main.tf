@@ -20,8 +20,8 @@ resource "cloudflare_record" "root" {
   zone_id = each.value.id
   name    = "@"
   type    = "A"
-  value   = var.api_ip
-  ttl     = 300
+  content = var.api_ip
+  ttl     = 1  # Must be 1 when proxied = true
   proxied = true
 
   comment = "EV Tracker API - ${var.environment}"
@@ -34,8 +34,8 @@ resource "cloudflare_record" "www" {
   zone_id = each.value.id
   name    = "www"
   type    = "CNAME"
-  value   = each.key
-  ttl     = 300
+  content = each.key
+  ttl     = 1  # Must be 1 when proxied = true
   proxied = true
 
   comment = "EV Tracker www - ${var.environment}"
@@ -48,8 +48,8 @@ resource "cloudflare_record" "api" {
   zone_id = each.value.id
   name    = "api"
   type    = "A"
-  value   = var.api_ip
-  ttl     = 300
+  content = var.api_ip
+  ttl     = 1  # Must be 1 when proxied = true
   proxied = true
 
   comment = "EV Tracker API endpoint - ${var.environment}"
@@ -62,8 +62,8 @@ resource "cloudflare_record" "env_subdomain" {
   zone_id = each.value.id
   name    = var.environment
   type    = "A"
-  value   = var.api_ip
-  ttl     = 300
+  content = var.api_ip
+  ttl     = 1  # Must be 1 when proxied = true
   proxied = true
 
   comment = "EV Tracker ${var.environment} environment"
@@ -75,8 +75,8 @@ resource "cloudflare_record" "env_api_subdomain" {
   zone_id = each.value.id
   name    = "${var.environment}-api"
   type    = "A"
-  value   = var.api_ip
-  ttl     = 300
+  content = var.api_ip
+  ttl     = 1  # Must be 1 when proxied = true
   proxied = true
 
   comment = "EV Tracker ${var.environment} API endpoint"
@@ -89,8 +89,8 @@ resource "cloudflare_record" "wildcard" {
   zone_id = each.value.id
   name    = "*"
   type    = "A"
-  value   = var.api_ip
-  ttl     = 300
+  content = var.api_ip
+  ttl     = 300  # Can use longer TTL when not proxied
   proxied = false  # Wildcards can't be proxied
 
   comment = "EV Tracker wildcard - ${var.environment}"
@@ -125,9 +125,9 @@ resource "cloudflare_page_rule" "api_bypass_cache" {
   priority = 2
 }
 
-# SSL/TLS settings
+# SSL/TLS settings (requires additional API permissions)
 resource "cloudflare_zone_settings_override" "ssl_settings" {
-  for_each = data.cloudflare_zone.zones
+  for_each = var.manage_zone_settings ? data.cloudflare_zone.zones : {}
 
   zone_id = each.value.id
 

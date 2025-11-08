@@ -1,7 +1,7 @@
 terraform {
   backend "gcs" {
-    # Using the centralized Terraform state project
-    bucket = "pm-tf-states"
-    prefix = "ev-tracker/terraform"
+    # Using a dedicated bucket for ev-cost-tracker in the pm-tf-states project
+    bucket = "ev-cost-tracker-tfstate"
+    prefix = "terraform"
   }
 }

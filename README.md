@@ -74,7 +74,18 @@ cp secrets.tfvars.example secrets.tfvars
 terraform init
 ```
 
-Note: The Terraform state is stored in the `pm-tf-states` GCS bucket in the `pm-tf-states` project.
+Note: The Terraform state is stored in the `ev-cost-tracker-tfstate` GCS bucket in the `pm-tf-states` project.
+
+To create the state bucket, run:
+```bash
+chmod +x scripts/create-tfstate-bucket.sh
+./scripts/create-tfstate-bucket.sh
+```
+
+If you encounter permission issues, you can:
+1. Run `./scripts/fix-tfstate-access.sh` to fix permissions
+2. Or use local state by copying `backend-local.tf.example` to `backend.tf`
+3. Or create a bucket in the ev-cost-tracker project by copying `backend-project.tf.example` to `backend.tf`
 
 ### 6. Create workspaces for environments
 

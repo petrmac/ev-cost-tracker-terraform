@@ -1,0 +1,9 @@
+# Alternative: Use a bucket in the ev-cost-tracker project itself
+# Rename this to backend.tf if you want to use this approach
+
+terraform {
+  backend "gcs" {
+    bucket = "ev-cost-tracker-tfstate"
+    prefix = "terraform/state"
+  }
+}

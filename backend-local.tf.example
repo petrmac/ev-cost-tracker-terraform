@@ -1,0 +1,8 @@
+# Alternative: Use local backend for testing
+# Rename this to backend.tf if you want to use local state instead of GCS
+
+terraform {
+  backend "local" {
+    path = "terraform.tfstate"
+  }
+}
