@@ -42,7 +42,7 @@ variable "github_owner" {
 variable "github_repository" {
   description = "GitHub repository name for Flux"
   type        = string
-  default     = "ev-tracker-gitops"
+  default     = "ev-cost-tracker-gitops"
 }
 
 variable "github_branch" {
@@ -182,4 +182,10 @@ variable "exclude_gke_system_pods" {
   description = "Exclude logs from GKE system namespaces"
   type        = bool
   default     = true
+}
+
+variable "manage_zone_settings" {
+  description = "Manage Cloudflare zone settings (requires additional permissions)"
+  type        = bool
+  default     = false
 }

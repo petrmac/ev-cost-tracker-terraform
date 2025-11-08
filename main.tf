@@ -111,6 +111,9 @@ module "cloudflare_dns" {
   # Environment subdomains
   create_environment_subdomains = var.create_environment_subdomains
   environment                   = terraform.workspace
+  
+  # Zone settings management
+  manage_zone_settings = var.manage_zone_settings
 
   depends_on = [
     module.networking

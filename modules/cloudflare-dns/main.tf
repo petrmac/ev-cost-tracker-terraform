@@ -125,16 +125,9 @@ resource "cloudflare_page_rule" "api_bypass_cache" {
   priority = 2
 }
 
-# SSL/TLS settings (requires additional API permissions)
-resource "cloudflare_zone_settings_override" "ssl_settings" {
-  for_each = var.manage_zone_settings ? data.cloudflare_zone.zones : {}
-
-  zone_id = each.value.id
-
-  settings {
-    ssl                      = "strict"
-    always_use_https         = "on"
-    min_tls_version          = "1.2"
-    automatic_https_rewrites = "on"
-  }
-}
+# SSL/TLS settings - REMOVED due to Cloudflare API issues
+# These settings can be configured manually in the Cloudflare dashboard:
+# 1. Go to SSL/TLS > Overview
+# 2. Set encryption mode to "Full (strict)"
+# 3. Enable "Always Use HTTPS" in SSL/TLS > Edge Certificates
+# 4. Set Minimum TLS Version to 1.2 in SSL/TLS > Edge Certificates

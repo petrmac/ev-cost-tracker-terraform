@@ -42,14 +42,8 @@ resource "google_container_cluster" "autopilot" {
   logging_service    = "logging.googleapis.com/kubernetes"
   monitoring_service = "monitoring.googleapis.com/kubernetes"
 
-  # Maintenance window - Sunday 03:00-07:00 UTC
-  maintenance_policy {
-    recurring_window {
-      start_time = "2025-01-05T03:00:00Z"  # Next Sunday from now
-      end_time   = "2025-01-05T07:00:00Z"
-      recurrence = "FREQ=WEEKLY;BYDAY=SU"
-    }
-  }
+  # Maintenance window - removed due to GKE Autopilot restrictions
+  # GKE Autopilot will use default maintenance windows
 
   # Default node pool is managed by Autopilot
   lifecycle {
