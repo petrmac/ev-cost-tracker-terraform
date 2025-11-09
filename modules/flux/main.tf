@@ -61,7 +61,7 @@ resource "kubernetes_secret" "flux_system" {
   type = "Opaque"
 }
 
-# Install Flux using Helm with wait=false to skip pre-install checks
+# Install Flux using Helm
 resource "helm_release" "flux" {
   name       = "flux2"
   repository = "https://fluxcd-community.github.io/helm-charts"
@@ -69,8 +69,10 @@ resource "helm_release" "flux" {
   namespace  = kubernetes_namespace.flux_system.metadata[0].name
   version    = "2.16.3"
 
-  # Skip waiting for deployment to be ready
-  wait = false
+  # Wait for the Flux components to be ready
+  wait = true
+  wait_for_jobs = true
+  timeout = 600
 
   # Force recreation if needed
   replace = true
@@ -161,6 +163,13 @@ resource "helm_release" "flux" {
   depends_on = [kubernetes_namespace.flux_system]
 }
 
+# Wait for CRDs to be ready
+resource "time_sleep" "wait_for_crds" {
+  depends_on = [helm_release.flux]
+
+  create_duration = "30s"
+}
+
 # Create GitRepository source
 resource "kubectl_manifest" "git_repository" {
   yaml_body = <<-YAML
@@ -178,7 +187,10 @@ resource "kubectl_manifest" "git_repository" {
       url: ssh://git@github.com/${var.github_owner}/${var.github_repository}
   YAML
 
-  depends_on = [helm_release.flux]
+  depends_on = [
+    helm_release.flux,
+    time_sleep.wait_for_crds
+  ]
 }
 
 # Create Kustomization for cluster sync
@@ -204,6 +216,7 @@ resource "kubectl_manifest" "flux_kustomization" {
 
   depends_on = [
     kubectl_manifest.git_repository,
-    kubernetes_secret.sops_age
+    kubernetes_secret.sops_age,
+    time_sleep.wait_for_crds
   ]
 }
