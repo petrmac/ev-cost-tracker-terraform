@@ -37,3 +37,15 @@ variable "manage_zone_settings" {
   type        = bool
   default     = false
 }
+
+variable "use_pages" {
+  description = "Whether frontend is hosted on Cloudflare Pages"
+  type        = bool
+  default     = false
+}
+
+variable "pages_project_name" {
+  description = "Cloudflare Pages project name"
+  type        = string
+  default     = "ev-cost-tracker-frontend"
+}

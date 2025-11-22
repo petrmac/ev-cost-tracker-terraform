@@ -13,21 +13,35 @@ data "cloudflare_zone" "zones" {
   name     = each.value
 }
 
-# Create A records for root domain pointing to API IP
-resource "cloudflare_record" "root" {
-  for_each = data.cloudflare_zone.zones
+# Create A records for root domain pointing to GKE (when NOT using Pages)
+resource "cloudflare_record" "root_gke" {
+  for_each = var.use_pages ? {} : data.cloudflare_zone.zones
 
   zone_id = each.value.id
   name    = "@"
   type    = "A"
   content = var.api_ip
-  ttl     = 1  # Must be 1 when proxied = true
-  proxied = true
+  ttl     = 300
+  proxied = false  # Disabled to allow Google managed certificates to work
 
-  comment = "EV Tracker API - ${var.environment}"
+  comment = "EV Tracker - ${var.environment} (GKE)"
 }
 
-# Create www subdomain
+# Create CNAME records for root domain pointing to Pages (when using Pages)
+resource "cloudflare_record" "root_pages" {
+  for_each = var.use_pages ? data.cloudflare_zone.zones : {}
+
+  zone_id = each.value.id
+  name    = "@"
+  type    = "CNAME"
+  content = "${var.pages_project_name}.pages.dev"
+  ttl     = 1  # Auto TTL
+  proxied = true  # Enable CDN
+
+  comment = "EV Tracker - ${var.environment} (Pages CDN)"
+}
+
+# Create www subdomain (always CNAME to root, proxied when using Pages)
 resource "cloudflare_record" "www" {
   for_each = data.cloudflare_zone.zones
 
@@ -35,8 +49,8 @@ resource "cloudflare_record" "www" {
   name    = "www"
   type    = "CNAME"
   content = each.key
-  ttl     = 1  # Must be 1 when proxied = true
-  proxied = true
+  ttl     = var.use_pages ? 1 : 300  # Auto TTL when using Pages
+  proxied = var.use_pages ? true : false  # Enable proxy for Pages (for redirect rule)
 
   comment = "EV Tracker www - ${var.environment}"
 }
@@ -49,8 +63,8 @@ resource "cloudflare_record" "api" {
   name    = "api"
   type    = "A"
   content = var.api_ip
-  ttl     = 1  # Must be 1 when proxied = true
-  proxied = true
+  ttl     = 300
+  proxied = false  # Disabled to allow Google managed certificates to work
 
   comment = "EV Tracker API endpoint - ${var.environment}"
 }
@@ -63,8 +77,8 @@ resource "cloudflare_record" "env_subdomain" {
   name    = var.environment
   type    = "A"
   content = var.api_ip
-  ttl     = 1  # Must be 1 when proxied = true
-  proxied = true
+  ttl     = 300
+  proxied = false  # Disabled to allow Google managed certificates to work
 
   comment = "EV Tracker ${var.environment} environment"
 }
@@ -76,8 +90,8 @@ resource "cloudflare_record" "env_api_subdomain" {
   name    = "${var.environment}-api"
   type    = "A"
   content = var.api_ip
-  ttl     = 1  # Must be 1 when proxied = true
-  proxied = true
+  ttl     = 300
+  proxied = false  # Disabled to allow Google managed certificates to work
 
   comment = "EV Tracker ${var.environment} API endpoint"
 }
@@ -96,20 +110,24 @@ resource "cloudflare_record" "wildcard" {
   comment = "EV Tracker wildcard - ${var.environment}"
 }
 
+# Note: www redirects are handled by Cloudflare Pages _redirects file
+# See: frontend/public/_redirects
+# This avoids requiring Zone:Page Rules:Edit permission on the API token
+
 # Page rules for caching and security (optional)
 resource "cloudflare_page_rule" "cache_static" {
   for_each = var.enable_page_rules ? data.cloudflare_zone.zones : {}
 
   zone_id = each.value.id
   target  = "${each.key}/static/*"
-  
+
   actions {
     cache_level = "cache_everything"
     edge_cache_ttl = 7200
     browser_cache_ttl = 86400
   }
-  
-  priority = 1
+
+  priority = 2
 }
 
 resource "cloudflare_page_rule" "api_bypass_cache" {
@@ -117,12 +135,12 @@ resource "cloudflare_page_rule" "api_bypass_cache" {
 
   zone_id = each.value.id
   target  = "${each.key}/api/*"
-  
+
   actions {
     cache_level = "bypass"
   }
-  
-  priority = 2
+
+  priority = 3
 }
 
 # SSL/TLS settings - REMOVED due to Cloudflare API issues

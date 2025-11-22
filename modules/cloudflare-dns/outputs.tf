@@ -6,7 +6,10 @@ output "zone_ids" {
 output "dns_records" {
   description = "Created DNS records"
   value = {
-    root = { for k, v in cloudflare_record.root : k => v.hostname }
+    root = merge(
+      { for k, v in cloudflare_record.root_gke : k => v.hostname },
+      { for k, v in cloudflare_record.root_pages : k => v.hostname }
+    )
     www  = { for k, v in cloudflare_record.www : k => v.hostname }
     api  = { for k, v in cloudflare_record.api : k => v.hostname }
   }

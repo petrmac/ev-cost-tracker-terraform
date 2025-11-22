@@ -13,3 +13,15 @@ variable "network_name" {
   type        = string
   default     = "default"
 }
+
+variable "firewall_rule_prefix" {
+  description = "Prefix for firewall rule names"
+  type        = string
+  default     = "ev-cost-tracker"
+}
+
+variable "https_firewall_target_tags" {
+  description = "Network tags for instances that should allow HTTPS traffic"
+  type        = list(string)
+  default     = ["https-server", "gke-node"]
+}

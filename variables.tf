@@ -189,3 +189,15 @@ variable "manage_zone_settings" {
   type        = bool
   default     = false
 }
+
+variable "use_cloudflare_pages" {
+  description = "Whether to use Cloudflare Pages for frontend hosting"
+  type        = bool
+  default     = false
+}
+
+variable "cloudflare_account_id" {
+  description = "Cloudflare account ID for Pages deployment"
+  type        = string
+  default     = ""
+}

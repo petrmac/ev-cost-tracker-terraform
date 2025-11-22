@@ -111,13 +111,34 @@ module "cloudflare_dns" {
   # Environment subdomains
   create_environment_subdomains = var.create_environment_subdomains
   environment                   = terraform.workspace
-  
+
   # Zone settings management
   manage_zone_settings = var.manage_zone_settings
+
+  # Cloudflare Pages support
+  use_pages           = var.use_cloudflare_pages
+  pages_project_name  = "ev-cost-tracker-frontend"
 
   depends_on = [
     module.networking
   ]
+}
+
+# Cloudflare Pages for frontend hosting
+module "cloudflare_pages" {
+  source = "./modules/cloudflare-pages"
+
+  count = var.use_cloudflare_pages ? 1 : 0
+
+  account_id        = var.cloudflare_account_id
+  project_name      = "ev-cost-tracker-frontend"
+  production_branch = "main"
+  github_owner      = var.github_owner
+  github_repo       = "ev-cost-tracker"  # Main repo with frontend code
+  api_base_url      = "https://api.${var.domains[0]}"
+  custom_domains    = var.domains
+
+  depends_on = [module.cloudflare_dns]
 }
 
 # Configure Kubernetes provider
