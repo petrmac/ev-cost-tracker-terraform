@@ -24,7 +24,7 @@ resource "cloudflare_pages_project" "frontend" {
   deployment_configs {
     production {
       environment_variables = {
-        VITE_API_BASE_URL = var.api_base_url
+        VITE_API_BASE_URL = "/api"  # Worker proxies to api.* subdomain
         NODE_VERSION      = "20"
       }
     }

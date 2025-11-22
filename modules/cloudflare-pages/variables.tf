@@ -26,11 +26,6 @@ variable "github_repo" {
   default     = "ev-cost-tracker"
 }
 
-variable "api_base_url" {
-  description = "Backend API base URL"
-  type        = string
-}
-
 variable "custom_domains" {
   description = "Custom domains for the Pages project"
   type        = list(string)

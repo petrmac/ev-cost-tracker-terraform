@@ -99,6 +99,35 @@ module "iam" {
   ]
 }
 
+# Cloud SQL PostgreSQL database
+module "cloud_sql" {
+  source = "./modules/cloud-sql"
+
+  count = var.enable_cloud_sql ? 1 : 0
+
+  project_id      = var.project_id
+  region          = var.region
+  instance_name   = var.cloud_sql_instance_name
+  instance_tier   = var.cloud_sql_instance_tier
+  disk_size_gb    = var.cloud_sql_disk_size_gb
+  database_name   = var.cloud_sql_database_name
+  database_user   = var.cloud_sql_database_user
+  database_password = var.cloud_sql_database_password
+  gke_sa_email    = module.gke.service_account_email
+
+  # Optional overrides
+  availability_type             = var.cloud_sql_availability_type
+  backup_retention_days         = var.cloud_sql_backup_retention_days
+  enable_point_in_time_recovery = var.cloud_sql_enable_pitr
+  deletion_protection           = var.cloud_sql_deletion_protection
+
+  depends_on = [
+    google_project_service.services,
+    module.gke,
+    module.iam
+  ]
+}
+
 # Cloudflare DNS for multiple domains
 module "cloudflare_dns" {
   source = "./modules/cloudflare-dns"
@@ -135,7 +164,6 @@ module "cloudflare_pages" {
   production_branch = "main"
   github_owner      = var.github_owner
   github_repo       = "ev-cost-tracker"  # Main repo with frontend code
-  api_base_url      = "https://api.${var.domains[0]}"
   custom_domains    = var.domains
 
   depends_on = [module.cloudflare_dns]

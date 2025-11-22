@@ -201,3 +201,72 @@ variable "cloudflare_account_id" {
   type        = string
   default     = ""
 }
+
+# ===== Cloud SQL Configuration =====
+
+variable "enable_cloud_sql" {
+  description = "Enable Cloud SQL PostgreSQL instance (replaces StatefulSet)"
+  type        = bool
+  default     = false
+}
+
+variable "cloud_sql_instance_name" {
+  description = "Name of the Cloud SQL instance"
+  type        = string
+  default     = "ev-tracker-postgres"
+}
+
+variable "cloud_sql_instance_tier" {
+  description = "Cloud SQL instance tier (db-f1-micro, db-g1-small, db-custom-1-3840)"
+  type        = string
+  default     = "db-f1-micro"
+}
+
+variable "cloud_sql_availability_type" {
+  description = "Availability type: ZONAL (single instance) or REGIONAL (HA with failover)"
+  type        = string
+  default     = "ZONAL"
+}
+
+variable "cloud_sql_disk_size_gb" {
+  description = "Disk size in GB"
+  type        = number
+  default     = 20
+}
+
+variable "cloud_sql_database_name" {
+  description = "Name of the database to create"
+  type        = string
+  default     = "evcost"
+}
+
+variable "cloud_sql_database_user" {
+  description = "Database user name"
+  type        = string
+  default     = "evcost"
+}
+
+variable "cloud_sql_database_password" {
+  description = "Database user password (use terraform.tfvars or environment variable)"
+  type        = string
+  sensitive   = true
+  default     = ""
+}
+
+variable "cloud_sql_backup_retention_days" {
+  description = "Number of automatic backups to retain"
+  type        = number
+  default     = 7
+}
+
+variable "cloud_sql_enable_pitr" {
+  description = "Enable point-in-time recovery (requires transaction logs)"
+  type        = bool
+  default     = true
+}
+
+variable "cloud_sql_deletion_protection" {
+  description = "Enable deletion protection (prevents accidental deletion)"
+  type        = bool
+  default     = true
+}
