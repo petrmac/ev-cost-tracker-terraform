@@ -19,3 +19,9 @@ variable "create_cert_manager_sa" {
   type        = bool
   default     = false
 }
+
+variable "create_otel_collector_sa" {
+  description = "Create service account for OpenTelemetry Collector"
+  type        = bool
+  default     = false
+}

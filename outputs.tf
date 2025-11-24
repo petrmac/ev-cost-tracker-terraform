@@ -33,3 +33,16 @@ output "domains_configured" {
   description = "List of domains configured"
   value       = var.domains
 }
+
+# ===== OpenTelemetry Service Account Outputs =====
+
+output "otel_collector_sa_email" {
+  description = "OpenTelemetry Collector service account email"
+  value       = module.iam.otel_collector_sa_email
+}
+
+output "otel_collector_key_base64" {
+  description = "OpenTelemetry Collector service account key (base64 encoded JSON)"
+  value       = module.iam.otel_collector_key_private_key
+  sensitive   = true
+}

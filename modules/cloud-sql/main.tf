@@ -55,7 +55,7 @@ resource "google_sql_database_instance" "postgres" {
     ip_configuration {
       ipv4_enabled    = false # Private IP only
       private_network = "projects/${var.project_id}/global/networks/default"
-      require_ssl     = true
+      ssl_mode        = "ENCRYPTED_ONLY" # Require SSL connections (replaces deprecated require_ssl)
 
       # Allow access from GKE cluster (via private IP)
       # No authorized networks needed since we're using private IP

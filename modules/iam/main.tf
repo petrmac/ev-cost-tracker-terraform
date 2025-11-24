@@ -81,3 +81,60 @@ resource "google_service_account_iam_member" "cert_manager_workload_identity" {
   role               = "roles/iam.workloadIdentityUser"
   member             = "serviceAccount:${var.project_id}.svc.id.goog[cert-manager/cert-manager]"
 }
+
+# ===== OpenTelemetry Collector Service Account =====
+
+# Create service account for OpenTelemetry Collector
+resource "google_service_account" "otel_collector" {
+  count = var.create_otel_collector_sa ? 1 : 0
+
+  account_id   = "otel-collector"
+  display_name = "OpenTelemetry Collector"
+  description  = "Service account for OpenTelemetry Collector to export traces, metrics, and logs to GCP"
+  project      = var.project_id
+}
+
+# Grant Cloud Trace Agent role (export traces to Cloud Trace)
+resource "google_project_iam_member" "otel_trace_agent" {
+  count = var.create_otel_collector_sa ? 1 : 0
+
+  project = var.project_id
+  role    = "roles/cloudtrace.agent"
+  member  = "serviceAccount:${google_service_account.otel_collector[0].email}"
+}
+
+# Grant Monitoring Metric Writer role (export metrics to Cloud Monitoring)
+resource "google_project_iam_member" "otel_metric_writer" {
+  count = var.create_otel_collector_sa ? 1 : 0
+
+  project = var.project_id
+  role    = "roles/monitoring.metricWriter"
+  member  = "serviceAccount:${google_service_account.otel_collector[0].email}"
+}
+
+# Grant Logging Log Writer role (export logs to Cloud Logging)
+resource "google_project_iam_member" "otel_log_writer" {
+  count = var.create_otel_collector_sa ? 1 : 0
+
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${google_service_account.otel_collector[0].email}"
+}
+
+# Workload Identity binding for OpenTelemetry Collector
+# Allows the Kubernetes service account to impersonate this GCP service account
+resource "google_service_account_iam_member" "otel_workload_identity" {
+  count = var.create_otel_collector_sa ? 1 : 0
+
+  service_account_id = google_service_account.otel_collector[0].name
+  role               = "roles/iam.workloadIdentityUser"
+  member             = "serviceAccount:${var.project_id}.svc.id.goog[opentelemetry/otel-collector]"
+}
+
+# Create JSON key for OpenTelemetry Collector (for use with kubernetes secret)
+resource "google_service_account_key" "otel_collector_key" {
+  count = var.create_otel_collector_sa ? 1 : 0
+
+  service_account_id = google_service_account.otel_collector[0].name
+  public_key_type    = "TYPE_X509_PEM_FILE"
+}

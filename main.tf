@@ -93,6 +93,11 @@ module "iam" {
   project_id   = var.project_id
   gke_sa_email = module.gke.service_account_email
 
+  # Service accounts for cluster components
+  create_external_dns_sa   = var.create_external_dns_sa
+  create_cert_manager_sa   = var.create_cert_manager_sa
+  create_otel_collector_sa = var.create_otel_collector_sa
+
   depends_on = [
     google_project_service.services,
     module.gke
