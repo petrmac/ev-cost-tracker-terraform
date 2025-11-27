@@ -98,3 +98,15 @@ variable "monthly_budget_amount" {
   type        = number
   default     = 100
 }
+
+variable "enable_dashboards" {
+  description = "Whether to create Cloud Monitoring dashboards"
+  type        = bool
+  default     = true
+}
+
+variable "enable_prometheus_alerts" {
+  description = "Whether to enable alerts that depend on Prometheus metrics (requires metrics to be scraped first)"
+  type        = bool
+  default     = false
+}
