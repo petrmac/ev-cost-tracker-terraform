@@ -16,6 +16,8 @@ resource "google_monitoring_dashboard" "service_health" {
       columns = 12
       tiles = [
         # Row 1: Golden Signals Overview
+        # NOTE: Prometheus metrics from PodMonitoring use resource.type="prometheus_target"
+        # with resource.labels.namespace (not namespace_name)
         {
           width  = 3
           height = 4
@@ -25,8 +27,8 @@ resource "google_monitoring_dashboard" "service_health" {
               timeSeriesQuery = {
                 timeSeriesFilter = {
                   filter = join(" AND ", [
-                    "resource.type=\"k8s_container\"",
-                    "resource.labels.namespace_name=\"api\"",
+                    "resource.type=\"prometheus_target\"",
+                    "resource.labels.namespace=\"api\"",
                     "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/counter\""
                   ])
                   aggregation = {
@@ -52,8 +54,8 @@ resource "google_monitoring_dashboard" "service_health" {
               timeSeriesQuery = {
                 timeSeriesFilter = {
                   filter = join(" AND ", [
-                    "resource.type=\"k8s_container\"",
-                    "resource.labels.namespace_name=\"api\"",
+                    "resource.type=\"prometheus_target\"",
+                    "resource.labels.namespace=\"api\"",
                     "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/counter\"",
                     "metric.labels.status=monitoring.regex.full_match(\"5.*\")"
                   ])
@@ -84,8 +86,8 @@ resource "google_monitoring_dashboard" "service_health" {
               timeSeriesQuery = {
                 timeSeriesFilter = {
                   filter = join(" AND ", [
-                    "resource.type=\"k8s_container\"",
-                    "resource.labels.namespace_name=\"api\"",
+                    "resource.type=\"prometheus_target\"",
+                    "resource.labels.namespace=\"api\"",
                     "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds/histogram\"",
                     "metric.labels.le=\"0.5\""
                   ])
@@ -146,15 +148,15 @@ resource "google_monitoring_dashboard" "service_health" {
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = join(" AND ", [
-                      "resource.type=\"k8s_container\"",
-                      "resource.labels.namespace_name=\"api\"",
+                      "resource.type=\"prometheus_target\"",
+                      "resource.labels.namespace=\"api\"",
                       "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/counter\""
                     ])
                     aggregation = {
                       alignmentPeriod    = "60s"
                       perSeriesAligner   = "ALIGN_RATE"
                       crossSeriesReducer = "REDUCE_SUM"
-                      groupByFields      = ["resource.labels.container_name"]
+                      groupByFields      = ["metric.labels.service"]
                     }
                   }
                 }
@@ -179,15 +181,15 @@ resource "google_monitoring_dashboard" "service_health" {
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = join(" AND ", [
-                      "resource.type=\"k8s_container\"",
-                      "resource.labels.namespace_name=\"api\"",
+                      "resource.type=\"prometheus_target\"",
+                      "resource.labels.namespace=\"api\"",
                       "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds/histogram\""
                     ])
                     aggregation = {
                       alignmentPeriod    = "60s"
                       perSeriesAligner   = "ALIGN_DELTA"
                       crossSeriesReducer = "REDUCE_PERCENTILE_95"
-                      groupByFields      = ["resource.labels.container_name"]
+                      groupByFields      = ["metric.labels.service"]
                     }
                   }
                 }
@@ -217,8 +219,8 @@ resource "google_monitoring_dashboard" "service_health" {
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = join(" AND ", [
-                      "resource.type=\"k8s_container\"",
-                      "resource.labels.namespace_name=\"api\"",
+                      "resource.type=\"prometheus_target\"",
+                      "resource.labels.namespace=\"api\"",
                       "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/counter\"",
                       "metric.labels.status=monitoring.regex.full_match(\"[45].*\")"
                     ])
@@ -247,8 +249,8 @@ resource "google_monitoring_dashboard" "service_health" {
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = join(" AND ", [
-                      "resource.type=\"k8s_container\"",
-                      "resource.labels.container_name=\"gateway\"",
+                      "resource.type=\"prometheus_target\"",
+                      "metric.labels.service=\"gateway\"",
                       "metric.type=\"prometheus.googleapis.com/resilience4j_circuitbreaker_state/gauge\""
                     ])
                     aggregation = {
@@ -343,8 +345,8 @@ resource "google_monitoring_dashboard" "service_health" {
                   timeSeriesQuery = {
                     timeSeriesFilter = {
                       filter = join(" AND ", [
-                        "resource.type=\"k8s_container\"",
-                        "resource.labels.container_name=\"session-service\"",
+                        "resource.type=\"prometheus_target\"",
+                        "metric.labels.service=\"session-service\"",
                         "metric.type=\"prometheus.googleapis.com/hikaricp_connections_active/gauge\""
                       ])
                       aggregation = {
@@ -360,8 +362,8 @@ resource "google_monitoring_dashboard" "service_health" {
                   timeSeriesQuery = {
                     timeSeriesFilter = {
                       filter = join(" AND ", [
-                        "resource.type=\"k8s_container\"",
-                        "resource.labels.container_name=\"session-service\"",
+                        "resource.type=\"prometheus_target\"",
+                        "metric.labels.service=\"session-service\"",
                         "metric.type=\"prometheus.googleapis.com/hikaricp_connections_idle/gauge\""
                       ])
                       aggregation = {
@@ -405,6 +407,7 @@ resource "google_monitoring_dashboard" "business_metrics" {
       columns = 12
       tiles = [
         # Row 1: Session Metrics
+        # NOTE: Business metrics from PodMonitoring use resource.type="prometheus_target"
         {
           width  = 4
           height = 4
@@ -414,7 +417,7 @@ resource "google_monitoring_dashboard" "business_metrics" {
               timeSeriesQuery = {
                 timeSeriesFilter = {
                   filter = join(" AND ", [
-                    "resource.type=\"k8s_container\"",
+                    "resource.type=\"prometheus_target\"",
                     "metric.type=\"prometheus.googleapis.com/ev_cost_sessions_created_total/counter\""
                   ])
                   aggregation = {
@@ -440,7 +443,7 @@ resource "google_monitoring_dashboard" "business_metrics" {
               timeSeriesQuery = {
                 timeSeriesFilter = {
                   filter = join(" AND ", [
-                    "resource.type=\"k8s_container\"",
+                    "resource.type=\"prometheus_target\"",
                     "metric.type=\"prometheus.googleapis.com/ev_cost_calculation_success_total/counter\""
                   ])
                   aggregation = {
@@ -466,7 +469,7 @@ resource "google_monitoring_dashboard" "business_metrics" {
               timeSeriesQuery = {
                 timeSeriesFilter = {
                   filter = join(" AND ", [
-                    "resource.type=\"k8s_container\"",
+                    "resource.type=\"prometheus_target\"",
                     "metric.type=\"prometheus.googleapis.com/ev_cost_calculation_errors_total/counter\""
                   ])
                   aggregation = {
@@ -498,7 +501,7 @@ resource "google_monitoring_dashboard" "business_metrics" {
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = join(" AND ", [
-                      "resource.type=\"k8s_container\"",
+                      "resource.type=\"prometheus_target\"",
                       "metric.type=\"prometheus.googleapis.com/ev_cost_sessions_created_total/counter\""
                     ])
                     aggregation = {
@@ -526,7 +529,7 @@ resource "google_monitoring_dashboard" "business_metrics" {
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = join(" AND ", [
-                      "resource.type=\"k8s_container\"",
+                      "resource.type=\"prometheus_target\"",
                       "metric.type=\"prometheus.googleapis.com/ev_cost_sessions_created_total/counter\""
                     ])
                     aggregation = {
@@ -555,7 +558,7 @@ resource "google_monitoring_dashboard" "business_metrics" {
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = join(" AND ", [
-                      "resource.type=\"k8s_container\"",
+                      "resource.type=\"prometheus_target\"",
                       "metric.type=\"prometheus.googleapis.com/ev_cost_auth_login_total/counter\""
                     ])
                     aggregation = {
@@ -583,7 +586,7 @@ resource "google_monitoring_dashboard" "business_metrics" {
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = join(" AND ", [
-                      "resource.type=\"k8s_container\"",
+                      "resource.type=\"prometheus_target\"",
                       "metric.type=\"prometheus.googleapis.com/ev_cost_users_registered_total/counter\""
                     ])
                     aggregation = {
@@ -612,7 +615,7 @@ resource "google_monitoring_dashboard" "business_metrics" {
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = join(" AND ", [
-                      "resource.type=\"k8s_container\"",
+                      "resource.type=\"prometheus_target\"",
                       "metric.type=\"prometheus.googleapis.com/ev_cost_api_key_usage_total/counter\""
                     ])
                     aggregation = {
@@ -640,7 +643,7 @@ resource "google_monitoring_dashboard" "business_metrics" {
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = join(" AND ", [
-                      "resource.type=\"k8s_container\"",
+                      "resource.type=\"prometheus_target\"",
                       "metric.type=\"prometheus.googleapis.com/ev_cost_stripe_events_total/counter\""
                     ])
                     aggregation = {

@@ -42,6 +42,14 @@ resource "google_container_cluster" "autopilot" {
   logging_service    = "logging.googleapis.com/kubernetes"
   monitoring_service = "monitoring.googleapis.com/kubernetes"
 
+  # Google Managed Prometheus (GMP) configuration
+  # Enables Prometheus-compatible metrics collection from workloads
+  monitoring_config {
+    managed_prometheus {
+      enabled = true
+    }
+  }
+
   # Maintenance window - removed due to GKE Autopilot restrictions
   # GKE Autopilot will use default maintenance windows
 
