@@ -5,8 +5,8 @@
 # Dashboard 1: Service Health Overview
 # =============================================================================
 resource "google_monitoring_dashboard" "service_health" {
-  count        = var.enable_dashboards ? 1 : 0
-  project      = var.project_id
+  count   = var.enable_dashboards ? 1 : 0
+  project = var.project_id
   dashboard_json = jsonencode({
     displayName = "EV Cost Tracker - Service Health"
     labels = {
@@ -26,14 +26,15 @@ resource "google_monitoring_dashboard" "service_health" {
             scorecard = {
               timeSeriesQuery = {
                 timeSeriesFilter = {
+                  # Use histogram metric - ALIGN_COUNT counts observations per interval
                   filter = join(" AND ", [
                     "resource.type=\"prometheus_target\"",
                     "resource.labels.namespace=\"api\"",
-                    "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/unknown\""
+                    "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds/histogram\""
                   ])
                   aggregation = {
                     alignmentPeriod    = "60s"
-                    perSeriesAligner   = "ALIGN_RATE"
+                    perSeriesAligner   = "ALIGN_COUNT"
                     crossSeriesReducer = "REDUCE_SUM"
                   }
                 }
@@ -53,22 +54,23 @@ resource "google_monitoring_dashboard" "service_health" {
             scorecard = {
               timeSeriesQuery = {
                 timeSeriesFilter = {
+                  # Filter for 5xx status codes using histogram
                   filter = join(" AND ", [
                     "resource.type=\"prometheus_target\"",
                     "resource.labels.namespace=\"api\"",
-                    "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/unknown\"",
+                    "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds/histogram\"",
                     "metric.labels.status=monitoring.regex.full_match(\"5.*\")"
                   ])
                   aggregation = {
                     alignmentPeriod    = "60s"
-                    perSeriesAligner   = "ALIGN_RATE"
+                    perSeriesAligner   = "ALIGN_COUNT"
                     crossSeriesReducer = "REDUCE_SUM"
                   }
                 }
               }
               thresholds = [
-                { value = 0.01, color = "YELLOW", direction = "ABOVE" },
-                { value = 0.05, color = "RED", direction = "ABOVE" }
+                { value = 1, color = "YELLOW", direction = "ABOVE" },
+                { value = 5, color = "RED", direction = "ABOVE" }
               ]
               sparkChartView = {
                 sparkChartType = "SPARK_LINE"
@@ -151,11 +153,11 @@ resource "google_monitoring_dashboard" "service_health" {
                     filter = join(" AND ", [
                       "resource.type=\"prometheus_target\"",
                       "resource.labels.namespace=\"api\"",
-                      "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/unknown\""
+                      "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds/histogram\""
                     ])
                     aggregation = {
                       alignmentPeriod    = "60s"
-                      perSeriesAligner   = "ALIGN_RATE"
+                      perSeriesAligner   = "ALIGN_COUNT"
                       crossSeriesReducer = "REDUCE_SUM"
                       groupByFields      = ["metric.labels.service"]
                     }
@@ -164,7 +166,7 @@ resource "google_monitoring_dashboard" "service_health" {
                 plotType = "LINE"
               }]
               yAxis = {
-                label = "Requests/sec"
+                label = "Requests/min"
                 scale = "LINEAR"
               }
             }
@@ -222,12 +224,12 @@ resource "google_monitoring_dashboard" "service_health" {
                     filter = join(" AND ", [
                       "resource.type=\"prometheus_target\"",
                       "resource.labels.namespace=\"api\"",
-                      "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/unknown\"",
+                      "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds/histogram\"",
                       "metric.labels.status=monitoring.regex.full_match(\"[45].*\")"
                     ])
                     aggregation = {
                       alignmentPeriod    = "60s"
-                      perSeriesAligner   = "ALIGN_RATE"
+                      perSeriesAligner   = "ALIGN_COUNT"
                       crossSeriesReducer = "REDUCE_SUM"
                       groupByFields      = ["metric.labels.status"]
                     }
@@ -397,8 +399,8 @@ resource "google_monitoring_dashboard" "service_health" {
 # Dashboard 2: Business Metrics
 # =============================================================================
 resource "google_monitoring_dashboard" "business_metrics" {
-  count        = var.enable_dashboards ? 1 : 0
-  project      = var.project_id
+  count   = var.enable_dashboards ? 1 : 0
+  project = var.project_id
   dashboard_json = jsonencode({
     displayName = "EV Cost Tracker - Business Metrics"
     labels = {
@@ -417,9 +419,10 @@ resource "google_monitoring_dashboard" "business_metrics" {
             scorecard = {
               timeSeriesQuery = {
                 timeSeriesFilter = {
+                  # ev_cost_sessions_total is the actual metric name
                   filter = join(" AND ", [
                     "resource.type=\"prometheus_target\"",
-                    "metric.type=\"prometheus.googleapis.com/ev_cost_sessions_created_total/counter\""
+                    "metric.type=\"prometheus.googleapis.com/ev_cost_sessions_total/counter\""
                   ])
                   aggregation = {
                     alignmentPeriod    = "86400s"
@@ -443,13 +446,14 @@ resource "google_monitoring_dashboard" "business_metrics" {
             scorecard = {
               timeSeriesQuery = {
                 timeSeriesFilter = {
+                  # Use histogram ALIGN_COUNT to count cost calculation operations
                   filter = join(" AND ", [
                     "resource.type=\"prometheus_target\"",
-                    "metric.type=\"prometheus.googleapis.com/ev_cost_calculation_success_total/counter\""
+                    "metric.type=\"prometheus.googleapis.com/ev_cost_cost_calculation_duration_seconds/histogram\""
                   ])
                   aggregation = {
                     alignmentPeriod    = "86400s"
-                    perSeriesAligner   = "ALIGN_DELTA"
+                    perSeriesAligner   = "ALIGN_COUNT"
                     crossSeriesReducer = "REDUCE_SUM"
                   }
                 }
@@ -465,13 +469,14 @@ resource "google_monitoring_dashboard" "business_metrics" {
           height = 4
           xPos   = 8
           widget = {
-            title = "Calculation Errors"
+            title = "Invoices Parsed (24h)"
             scorecard = {
               timeSeriesQuery = {
                 timeSeriesFilter = {
+                  # ev_cost_invoices_parsed_total is the actual metric name
                   filter = join(" AND ", [
                     "resource.type=\"prometheus_target\"",
-                    "metric.type=\"prometheus.googleapis.com/ev_cost_calculation_errors_total/counter\""
+                    "metric.type=\"prometheus.googleapis.com/ev_cost_invoices_parsed_total/counter\""
                   ])
                   aggregation = {
                     alignmentPeriod    = "86400s"
@@ -480,9 +485,6 @@ resource "google_monitoring_dashboard" "business_metrics" {
                   }
                 }
               }
-              thresholds = [
-                { value = 1, color = "RED", direction = "ABOVE" }
-              ]
               sparkChartView = {
                 sparkChartType = "SPARK_BAR"
               }
@@ -490,31 +492,34 @@ resource "google_monitoring_dashboard" "business_metrics" {
           }
         },
 
-        # Row 2: Sessions by Provider/Source
+        # Row 2: Sessions and Calculations over time
         {
           width  = 6
           height = 4
           yPos   = 4
           widget = {
-            title = "Sessions by Provider"
+            title = "Sessions Created Over Time"
             xyChart = {
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = join(" AND ", [
                       "resource.type=\"prometheus_target\"",
-                      "metric.type=\"prometheus.googleapis.com/ev_cost_sessions_created_total/counter\""
+                      "metric.type=\"prometheus.googleapis.com/ev_cost_sessions_total/counter\""
                     ])
                     aggregation = {
                       alignmentPeriod    = "3600s"
                       perSeriesAligner   = "ALIGN_DELTA"
                       crossSeriesReducer = "REDUCE_SUM"
-                      groupByFields      = ["metric.labels.provider"]
                     }
                   }
                 }
-                plotType = "STACKED_BAR"
+                plotType = "LINE"
               }]
+              yAxis = {
+                label = "Sessions"
+                scale = "LINEAR"
+              }
             }
           }
         },
@@ -524,25 +529,32 @@ resource "google_monitoring_dashboard" "business_metrics" {
           xPos   = 6
           yPos   = 4
           widget = {
-            title = "Sessions by Energy Source"
+            title = "Session Creation Duration (P95)"
             xyChart = {
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
                     filter = join(" AND ", [
                       "resource.type=\"prometheus_target\"",
-                      "metric.type=\"prometheus.googleapis.com/ev_cost_sessions_created_total/counter\""
+                      "metric.type=\"prometheus.googleapis.com/ev_cost_sessions_create_duration_seconds/histogram\""
                     ])
                     aggregation = {
-                      alignmentPeriod    = "3600s"
+                      alignmentPeriod    = "60s"
                       perSeriesAligner   = "ALIGN_DELTA"
-                      crossSeriesReducer = "REDUCE_SUM"
-                      groupByFields      = ["metric.labels.energy_source"]
+                      crossSeriesReducer = "REDUCE_PERCENTILE_95"
                     }
                   }
                 }
-                plotType = "STACKED_BAR"
+                plotType = "LINE"
               }]
+              yAxis = {
+                label = "Seconds"
+                scale = "LINEAR"
+              }
+              thresholds = [
+                { value = 0.5 },
+                { value = 1.0 }
+              ]
             }
           }
         },
@@ -581,25 +593,29 @@ resource "google_monitoring_dashboard" "business_metrics" {
           xPos   = 6
           yPos   = 8
           widget = {
-            title = "New Registrations"
+            title = "Cost Calculation Duration (P95)"
             xyChart = {
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
+                    # Use cost calculation histogram to show performance
                     filter = join(" AND ", [
                       "resource.type=\"prometheus_target\"",
-                      "metric.type=\"prometheus.googleapis.com/ev_cost_users_registered_total/counter\""
+                      "metric.type=\"prometheus.googleapis.com/ev_cost_cost_calculation_duration_seconds/histogram\""
                     ])
                     aggregation = {
-                      alignmentPeriod    = "86400s"
+                      alignmentPeriod    = "60s"
                       perSeriesAligner   = "ALIGN_DELTA"
-                      crossSeriesReducer = "REDUCE_SUM"
-                      groupByFields      = ["metric.labels.tier"]
+                      crossSeriesReducer = "REDUCE_PERCENTILE_95"
                     }
                   }
                 }
-                plotType = "STACKED_BAR"
+                plotType = "LINE"
               }]
+              yAxis = {
+                label = "Seconds"
+                scale = "LINEAR"
+              }
             }
           }
         },
@@ -638,25 +654,46 @@ resource "google_monitoring_dashboard" "business_metrics" {
           xPos   = 6
           yPos   = 12
           widget = {
-            title = "Stripe Webhook Events"
+            title = "Database Connection Pool"
             xyChart = {
-              dataSets = [{
-                timeSeriesQuery = {
-                  timeSeriesFilter = {
-                    filter = join(" AND ", [
-                      "resource.type=\"prometheus_target\"",
-                      "metric.type=\"prometheus.googleapis.com/ev_cost_stripe_events_total/counter\""
-                    ])
-                    aggregation = {
-                      alignmentPeriod    = "3600s"
-                      perSeriesAligner   = "ALIGN_DELTA"
-                      crossSeriesReducer = "REDUCE_SUM"
-                      groupByFields      = ["metric.labels.event_type", "metric.labels.success"]
+              dataSets = [
+                {
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = join(" AND ", [
+                        "resource.type=\"prometheus_target\"",
+                        "metric.type=\"prometheus.googleapis.com/hikaricp_connections_active/gauge\""
+                      ])
+                      aggregation = {
+                        alignmentPeriod  = "60s"
+                        perSeriesAligner = "ALIGN_MEAN"
+                      }
                     }
                   }
+                  plotType       = "LINE"
+                  legendTemplate = "Active"
+                },
+                {
+                  timeSeriesQuery = {
+                    timeSeriesFilter = {
+                      filter = join(" AND ", [
+                        "resource.type=\"prometheus_target\"",
+                        "metric.type=\"prometheus.googleapis.com/hikaricp_connections_idle/gauge\""
+                      ])
+                      aggregation = {
+                        alignmentPeriod  = "60s"
+                        perSeriesAligner = "ALIGN_MEAN"
+                      }
+                    }
+                  }
+                  plotType       = "LINE"
+                  legendTemplate = "Idle"
                 }
-                plotType = "STACKED_BAR"
-              }]
+              ]
+              yAxis = {
+                label = "Connections"
+                scale = "LINEAR"
+              }
             }
           }
         }

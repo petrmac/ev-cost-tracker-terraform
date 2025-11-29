@@ -11,25 +11,26 @@ resource "google_monitoring_alert_policy" "high_error_rate" {
   combiner     = "OR"
 
   conditions {
-    display_name = "Error rate > ${var.error_rate_threshold * 100}% for 5 minutes"
+    display_name = "5xx errors > 5 per minute for 5 minutes"
 
     condition_threshold {
-      # NOTE: Prometheus metrics from PodMonitoring use resource.type="prometheus_target"
+      # NOTE: Prometheus histogram metrics use /histogram suffix
+      # ALIGN_COUNT counts the number of observations in the histogram
       filter = join(" AND ", [
         "resource.type=\"prometheus_target\"",
         "resource.labels.namespace=\"api\"",
-        "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/unknown\"",
+        "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds/histogram\"",
         "metric.labels.status=monitoring.regex.full_match(\"5.*\")"
       ])
 
       aggregations {
         alignment_period     = "60s"
-        per_series_aligner   = "ALIGN_RATE"
+        per_series_aligner   = "ALIGN_COUNT"
         cross_series_reducer = "REDUCE_SUM"
       }
 
       comparison      = "COMPARISON_GT"
-      threshold_value = var.error_rate_threshold
+      threshold_value = 5
       duration        = "300s"
 
       trigger {
@@ -386,32 +387,33 @@ resource "google_monitoring_alert_policy" "pod_restarts" {
 }
 
 # =============================================================================
-# Alert 6: Cost Calculation Errors (Business Critical)
+# Alert 6: Cost Calculation Slow (Business Critical)
 # =============================================================================
-resource "google_monitoring_alert_policy" "cost_calculation_errors" {
+resource "google_monitoring_alert_policy" "cost_calculation_slow" {
   count        = var.enable_alerts && var.enable_prometheus_alerts ? 1 : 0
   project      = var.project_id
-  display_name = "Cost Calculation Errors - Data Integrity"
+  display_name = "Cost Calculation Slow - Performance"
   combiner     = "OR"
 
   conditions {
-    display_name = "Any cost calculation error"
+    display_name = "P95 cost calculation > 1s"
 
     condition_threshold {
-      # NOTE: Prometheus metrics from PodMonitoring use resource.type="prometheus_target"
+      # Monitor cost calculation duration histogram
       filter = join(" AND ", [
         "resource.type=\"prometheus_target\"",
-        "metric.type=\"prometheus.googleapis.com/ev_cost_calculation_errors_total/counter\""
+        "metric.type=\"prometheus.googleapis.com/ev_cost_cost_calculation_duration_seconds/histogram\""
       ])
 
       aggregations {
-        alignment_period   = "60s"
-        per_series_aligner = "ALIGN_DELTA"
+        alignment_period     = "60s"
+        per_series_aligner   = "ALIGN_DELTA"
+        cross_series_reducer = "REDUCE_PERCENTILE_95"
       }
 
       comparison      = "COMPARISON_GT"
-      threshold_value = 0
-      duration        = "0s"
+      threshold_value = 1.0
+      duration        = "300s"
 
       trigger {
         count = 1
@@ -429,31 +431,28 @@ resource "google_monitoring_alert_policy" "cost_calculation_errors" {
 
   documentation {
     content   = <<-EOT
-      ## Cost Calculation Error Alert
+      ## Cost Calculation Slow Alert
 
-      **Severity**: Critical
-      **Impact**: Users may see incorrect charging costs
+      **Severity**: Warning
+      **Impact**: Users may experience slow session creation
 
-      ### Immediate Actions:
-      1. Check logs for stack traces
-      2. Review recent sessions with errors
-      3. Verify VAT calculation logic
-      4. Check for edge cases (null values, division by zero)
+      ### Investigation Steps:
+      1. Check database query performance
+      2. Review concurrent session creation rate
+      3. Check for missing indexes
+      4. Review VAT calculation complexity
 
-      ### Data Validation:
-      ```sql
-      SELECT * FROM charging_sessions
-      WHERE total_cost_with_vat IS NULL
-         OR total_cost_with_vat < 0
-      ORDER BY created_at DESC
-      LIMIT 100;
+      ### Quick Checks:
+      ```bash
+      # Check session-service logs for slow queries
+      kubectl logs -n api -l app=session-service --tail=100 | grep -i slow
       ```
     EOT
     mime_type = "text/markdown"
   }
 
   user_labels = {
-    severity    = "critical"
+    severity    = "warning"
     service     = "session-service"
     environment = terraform.workspace
   }
