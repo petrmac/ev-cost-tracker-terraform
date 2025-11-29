@@ -18,7 +18,7 @@ resource "google_monitoring_alert_policy" "high_error_rate" {
       filter = join(" AND ", [
         "resource.type=\"prometheus_target\"",
         "resource.labels.namespace=\"api\"",
-        "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/counter\"",
+        "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/unknown\"",
         "metric.labels.status=monitoring.regex.full_match(\"5.*\")"
       ])
 

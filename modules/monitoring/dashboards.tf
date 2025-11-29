@@ -29,7 +29,7 @@ resource "google_monitoring_dashboard" "service_health" {
                   filter = join(" AND ", [
                     "resource.type=\"prometheus_target\"",
                     "resource.labels.namespace=\"api\"",
-                    "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/counter\""
+                    "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/unknown\""
                   ])
                   aggregation = {
                     alignmentPeriod    = "60s"
@@ -56,7 +56,7 @@ resource "google_monitoring_dashboard" "service_health" {
                   filter = join(" AND ", [
                     "resource.type=\"prometheus_target\"",
                     "resource.labels.namespace=\"api\"",
-                    "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/counter\"",
+                    "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/unknown\"",
                     "metric.labels.status=monitoring.regex.full_match(\"5.*\")"
                   ])
                   aggregation = {
@@ -85,21 +85,22 @@ resource "google_monitoring_dashboard" "service_health" {
             scorecard = {
               timeSeriesQuery = {
                 timeSeriesFilter = {
+                  # Use histogram without le filter - aggregation calculates P95
                   filter = join(" AND ", [
                     "resource.type=\"prometheus_target\"",
                     "resource.labels.namespace=\"api\"",
-                    "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds/histogram\"",
-                    "metric.labels.le=\"0.5\""
+                    "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds/histogram\""
                   ])
                   aggregation = {
-                    alignmentPeriod  = "60s"
-                    perSeriesAligner = "ALIGN_MEAN"
+                    alignmentPeriod    = "60s"
+                    perSeriesAligner   = "ALIGN_DELTA"
+                    crossSeriesReducer = "REDUCE_PERCENTILE_95"
                   }
                 }
               }
               thresholds = [
-                { value = 500, color = "YELLOW", direction = "ABOVE" },
-                { value = 1000, color = "RED", direction = "ABOVE" }
+                { value = 0.5, color = "YELLOW", direction = "ABOVE" },
+                { value = 1.0, color = "RED", direction = "ABOVE" }
               ]
               sparkChartView = {
                 sparkChartType = "SPARK_LINE"
@@ -150,7 +151,7 @@ resource "google_monitoring_dashboard" "service_health" {
                     filter = join(" AND ", [
                       "resource.type=\"prometheus_target\"",
                       "resource.labels.namespace=\"api\"",
-                      "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/counter\""
+                      "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/unknown\""
                     ])
                     aggregation = {
                       alignmentPeriod    = "60s"
@@ -221,7 +222,7 @@ resource "google_monitoring_dashboard" "service_health" {
                     filter = join(" AND ", [
                       "resource.type=\"prometheus_target\"",
                       "resource.labels.namespace=\"api\"",
-                      "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/counter\"",
+                      "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/unknown\"",
                       "metric.labels.status=monitoring.regex.full_match(\"[45].*\")"
                     ])
                     aggregation = {
