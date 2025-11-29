@@ -28,9 +28,9 @@ variable "latency_threshold_seconds" {
 }
 
 variable "memory_threshold_bytes" {
-  description = "Memory threshold in bytes"
+  description = "Memory threshold in bytes (default 850MB, pods have 1Gi limits)"
   type        = number
-  default     = 500000000
+  default     = 850000000
 }
 
 variable "pod_restart_threshold" {

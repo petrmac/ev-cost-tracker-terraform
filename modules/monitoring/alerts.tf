@@ -14,9 +14,10 @@ resource "google_monitoring_alert_policy" "high_error_rate" {
     display_name = "Error rate > ${var.error_rate_threshold * 100}% for 5 minutes"
 
     condition_threshold {
+      # NOTE: Prometheus metrics from PodMonitoring use resource.type="prometheus_target"
       filter = join(" AND ", [
-        "resource.type=\"k8s_container\"",
-        "resource.labels.namespace_name=\"api\"",
+        "resource.type=\"prometheus_target\"",
+        "resource.labels.namespace=\"api\"",
         "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds_count/counter\"",
         "metric.labels.status=monitoring.regex.full_match(\"5.*\")"
       ])
@@ -92,9 +93,10 @@ resource "google_monitoring_alert_policy" "high_latency" {
     display_name = "P95 latency > ${var.latency_threshold_seconds}s for 5 minutes"
 
     condition_threshold {
+      # NOTE: Prometheus metrics from PodMonitoring use resource.type="prometheus_target"
       filter = join(" AND ", [
-        "resource.type=\"k8s_container\"",
-        "resource.labels.namespace_name=\"api\"",
+        "resource.type=\"prometheus_target\"",
+        "resource.labels.namespace=\"api\"",
         "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds/histogram\""
       ])
 
@@ -164,9 +166,10 @@ resource "google_monitoring_alert_policy" "circuit_breaker_open" {
     display_name = "Circuit breaker is open"
 
     condition_threshold {
+      # NOTE: Prometheus metrics from PodMonitoring use resource.type="prometheus_target"
       filter = join(" AND ", [
-        "resource.type=\"k8s_container\"",
-        "resource.labels.container_name=\"gateway\"",
+        "resource.type=\"prometheus_target\"",
+        "metric.labels.service=\"gateway\"",
         "metric.type=\"prometheus.googleapis.com/resilience4j_circuitbreaker_state/gauge\"",
         "metric.labels.state=\"open\""
       ])
@@ -240,9 +243,10 @@ resource "google_monitoring_alert_policy" "db_pool_exhausted" {
     display_name = "Active DB connections >= 4 (max 5)"
 
     condition_threshold {
+      # NOTE: Prometheus metrics from PodMonitoring use resource.type="prometheus_target"
       filter = join(" AND ", [
-        "resource.type=\"k8s_container\"",
-        "resource.labels.container_name=\"session-service\"",
+        "resource.type=\"prometheus_target\"",
+        "metric.labels.service=\"session-service\"",
         "metric.type=\"prometheus.googleapis.com/hikaricp_connections_active/gauge\""
       ])
 
@@ -394,8 +398,9 @@ resource "google_monitoring_alert_policy" "cost_calculation_errors" {
     display_name = "Any cost calculation error"
 
     condition_threshold {
+      # NOTE: Prometheus metrics from PodMonitoring use resource.type="prometheus_target"
       filter = join(" AND ", [
-        "resource.type=\"k8s_container\"",
+        "resource.type=\"prometheus_target\"",
         "metric.type=\"prometheus.googleapis.com/ev_cost_calculation_errors_total/counter\""
       ])
 
@@ -522,6 +527,449 @@ resource "google_monitoring_alert_policy" "high_memory" {
   user_labels = {
     severity    = "warning"
     service     = "api"
+    environment = terraform.workspace
+  }
+}
+
+# =============================================================================
+# Alert 8: Cloud SQL Memory Usage High
+# =============================================================================
+resource "google_monitoring_alert_policy" "cloudsql_high_memory" {
+  count        = var.enable_alerts ? 1 : 0
+  project      = var.project_id
+  display_name = "Cloud SQL High Memory Usage"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Memory usage > 85%"
+
+    condition_threshold {
+      filter = join(" AND ", [
+        "resource.type=\"cloudsql_database\"",
+        "metric.type=\"cloudsql.googleapis.com/database/memory/utilization\""
+      ])
+
+      aggregations {
+        alignment_period   = "300s"
+        per_series_aligner = "ALIGN_MEAN"
+      }
+
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0.85
+      duration        = "300s"
+
+      trigger {
+        count = 1
+      }
+    }
+  }
+
+  notification_channels = [
+    google_monitoring_notification_channel.email.id
+  ]
+
+  alert_strategy {
+    auto_close = "3600s"
+  }
+
+  documentation {
+    content   = <<-EOT
+      ## Cloud SQL High Memory Usage Alert
+
+      **Severity**: Warning
+      **Impact**: Database may become slow or unresponsive
+
+      ### Investigation Steps:
+      1. Check for memory-intensive queries
+      2. Review connection count
+      3. Check for missing indexes causing full table scans
+      4. Review recent schema changes
+
+      ### SQL Diagnostics:
+      ```sql
+      -- Check active queries
+      SELECT pid, now() - pg_stat_activity.query_start AS duration, query, state
+      FROM pg_stat_activity
+      WHERE state != 'idle'
+      ORDER BY duration DESC;
+
+      -- Check table sizes
+      SELECT relname, pg_size_pretty(pg_total_relation_size(relid))
+      FROM pg_catalog.pg_statio_user_tables
+      ORDER BY pg_total_relation_size(relid) DESC;
+      ```
+
+      ### Actions:
+      - Consider scaling up the Cloud SQL instance
+      - Optimize memory-intensive queries
+      - Add appropriate indexes
+    EOT
+    mime_type = "text/markdown"
+  }
+
+  user_labels = {
+    severity    = "warning"
+    service     = "cloudsql"
+    environment = terraform.workspace
+  }
+}
+
+# =============================================================================
+# Alert 9: Cloud SQL CPU Usage High
+# =============================================================================
+resource "google_monitoring_alert_policy" "cloudsql_high_cpu" {
+  count        = var.enable_alerts ? 1 : 0
+  project      = var.project_id
+  display_name = "Cloud SQL High CPU Usage"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "CPU usage > 80% for 10 minutes"
+
+    condition_threshold {
+      filter = join(" AND ", [
+        "resource.type=\"cloudsql_database\"",
+        "metric.type=\"cloudsql.googleapis.com/database/cpu/utilization\""
+      ])
+
+      aggregations {
+        alignment_period   = "300s"
+        per_series_aligner = "ALIGN_MEAN"
+      }
+
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0.80
+      duration        = "600s"
+
+      trigger {
+        count = 1
+      }
+    }
+  }
+
+  notification_channels = [
+    google_monitoring_notification_channel.email.id
+  ]
+
+  alert_strategy {
+    auto_close = "3600s"
+  }
+
+  documentation {
+    content   = <<-EOT
+      ## Cloud SQL High CPU Usage Alert
+
+      **Severity**: Warning
+      **Impact**: Query performance degradation
+
+      ### Investigation Steps:
+      1. Identify slow/expensive queries
+      2. Check for missing indexes
+      3. Review query execution plans
+      4. Check for lock contention
+
+      ### SQL Diagnostics:
+      ```sql
+      -- Find slow queries (requires pg_stat_statements extension)
+      SELECT query, calls, total_exec_time, mean_exec_time, rows
+      FROM pg_stat_statements
+      ORDER BY total_exec_time DESC
+      LIMIT 10;
+
+      -- Check for sequential scans
+      SELECT relname, seq_scan, seq_tup_read, idx_scan, idx_tup_fetch
+      FROM pg_stat_user_tables
+      WHERE seq_scan > 0
+      ORDER BY seq_tup_read DESC;
+      ```
+
+      ### Actions:
+      - Add missing indexes
+      - Optimize expensive queries
+      - Consider scaling up CPU
+    EOT
+    mime_type = "text/markdown"
+  }
+
+  user_labels = {
+    severity    = "warning"
+    service     = "cloudsql"
+    environment = terraform.workspace
+  }
+}
+
+# =============================================================================
+# Alert 10: Cloud SQL Connection Count High
+# =============================================================================
+resource "google_monitoring_alert_policy" "cloudsql_high_connections" {
+  count        = var.enable_alerts ? 1 : 0
+  project      = var.project_id
+  display_name = "Cloud SQL High Connection Count"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Connections > 80% of max"
+
+    condition_threshold {
+      filter = join(" AND ", [
+        "resource.type=\"cloudsql_database\"",
+        "metric.type=\"cloudsql.googleapis.com/database/postgresql/num_backends\""
+      ])
+
+      aggregations {
+        alignment_period   = "60s"
+        per_series_aligner = "ALIGN_MEAN"
+      }
+
+      # Default max_connections for small Cloud SQL is ~100
+      # Alert when approaching limit
+      comparison      = "COMPARISON_GT"
+      threshold_value = 80
+      duration        = "300s"
+
+      trigger {
+        count = 1
+      }
+    }
+  }
+
+  notification_channels = [
+    google_monitoring_notification_channel.email.id
+  ]
+
+  alert_strategy {
+    auto_close = "1800s"
+  }
+
+  documentation {
+    content   = <<-EOT
+      ## Cloud SQL High Connection Count Alert
+
+      **Severity**: Warning
+      **Impact**: New connections may be rejected
+
+      ### Investigation Steps:
+      1. Check for connection leaks in application
+      2. Review connection pool settings
+      3. Identify clients holding connections
+
+      ### SQL Diagnostics:
+      ```sql
+      -- Check connections by state
+      SELECT state, count(*)
+      FROM pg_stat_activity
+      GROUP BY state;
+
+      -- Check connections by application
+      SELECT application_name, count(*)
+      FROM pg_stat_activity
+      GROUP BY application_name;
+
+      -- Check idle connections
+      SELECT pid, usename, application_name, state, query_start
+      FROM pg_stat_activity
+      WHERE state = 'idle'
+      ORDER BY query_start;
+      ```
+
+      ### Actions:
+      - Review HikariCP pool size settings
+      - Check for connection leaks
+      - Consider increasing max_connections (requires restart)
+    EOT
+    mime_type = "text/markdown"
+  }
+
+  user_labels = {
+    severity    = "warning"
+    service     = "cloudsql"
+    environment = terraform.workspace
+  }
+}
+
+# =============================================================================
+# Alert 11: Cloud SQL Deadlocks Detected
+# =============================================================================
+resource "google_monitoring_alert_policy" "cloudsql_deadlocks" {
+  count        = var.enable_alerts ? 1 : 0
+  project      = var.project_id
+  display_name = "Cloud SQL Deadlocks Detected"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Any deadlock detected"
+
+    condition_threshold {
+      filter = join(" AND ", [
+        "resource.type=\"cloudsql_database\"",
+        "metric.type=\"cloudsql.googleapis.com/database/postgresql/deadlock_count\""
+      ])
+
+      aggregations {
+        alignment_period   = "60s"
+        per_series_aligner = "ALIGN_DELTA"
+      }
+
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0
+      duration        = "0s"
+
+      trigger {
+        count = 1
+      }
+    }
+  }
+
+  notification_channels = [
+    google_monitoring_notification_channel.email.id
+  ]
+
+  alert_strategy {
+    auto_close = "3600s"
+  }
+
+  documentation {
+    content   = <<-EOT
+      ## Cloud SQL Deadlock Alert
+
+      **Severity**: Critical
+      **Impact**: Transactions are being rolled back due to deadlocks
+
+      ### Investigation Steps:
+      1. Check PostgreSQL logs for deadlock details
+      2. Review transaction isolation levels
+      3. Identify conflicting queries
+      4. Review locking order in code
+
+      ### SQL Diagnostics:
+      ```sql
+      -- Check for current locks
+      SELECT blocked_locks.pid AS blocked_pid,
+             blocked_activity.usename AS blocked_user,
+             blocking_locks.pid AS blocking_pid,
+             blocking_activity.usename AS blocking_user,
+             blocked_activity.query AS blocked_query,
+             blocking_activity.query AS blocking_query
+      FROM pg_catalog.pg_locks blocked_locks
+      JOIN pg_catalog.pg_stat_activity blocked_activity
+        ON blocked_activity.pid = blocked_locks.pid
+      JOIN pg_catalog.pg_locks blocking_locks
+        ON blocking_locks.locktype = blocked_locks.locktype
+        AND blocking_locks.database IS NOT DISTINCT FROM blocked_locks.database
+        AND blocking_locks.relation IS NOT DISTINCT FROM blocked_locks.relation
+        AND blocking_locks.pid != blocked_locks.pid
+      JOIN pg_catalog.pg_stat_activity blocking_activity
+        ON blocking_activity.pid = blocking_locks.pid
+      WHERE NOT blocked_locks.granted;
+      ```
+
+      ### Common Causes:
+      - Concurrent updates to same rows in different order
+      - Long-running transactions holding locks
+      - Missing indexes causing table locks
+
+      ### Actions:
+      - Review transaction boundaries
+      - Ensure consistent locking order
+      - Consider shorter transactions
+      - Add appropriate indexes
+    EOT
+    mime_type = "text/markdown"
+  }
+
+  user_labels = {
+    severity    = "critical"
+    service     = "cloudsql"
+    environment = terraform.workspace
+  }
+}
+
+# =============================================================================
+# Alert 12: Cloud SQL Disk Usage High
+# =============================================================================
+resource "google_monitoring_alert_policy" "cloudsql_high_disk" {
+  count        = var.enable_alerts ? 1 : 0
+  project      = var.project_id
+  display_name = "Cloud SQL High Disk Usage"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Disk usage > 80%"
+
+    condition_threshold {
+      filter = join(" AND ", [
+        "resource.type=\"cloudsql_database\"",
+        "metric.type=\"cloudsql.googleapis.com/database/disk/utilization\""
+      ])
+
+      aggregations {
+        alignment_period   = "300s"
+        per_series_aligner = "ALIGN_MEAN"
+      }
+
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0.80
+      duration        = "300s"
+
+      trigger {
+        count = 1
+      }
+    }
+  }
+
+  notification_channels = [
+    google_monitoring_notification_channel.email.id
+  ]
+
+  alert_strategy {
+    auto_close = "3600s"
+  }
+
+  documentation {
+    content   = <<-EOT
+      ## Cloud SQL High Disk Usage Alert
+
+      **Severity**: Warning
+      **Impact**: Database may run out of disk space
+
+      ### Investigation Steps:
+      1. Check table sizes
+      2. Review WAL/transaction log size
+      3. Check for bloated tables needing VACUUM
+      4. Review data retention policies
+
+      ### SQL Diagnostics:
+      ```sql
+      -- Check database size
+      SELECT pg_size_pretty(pg_database_size(current_database()));
+
+      -- Check table sizes
+      SELECT schemaname, relname,
+             pg_size_pretty(pg_total_relation_size(relid)) AS total_size
+      FROM pg_catalog.pg_statio_user_tables
+      ORDER BY pg_total_relation_size(relid) DESC
+      LIMIT 20;
+
+      -- Check for bloat (dead tuples)
+      SELECT relname, n_dead_tup, n_live_tup,
+             round(n_dead_tup * 100.0 / nullif(n_live_tup, 0), 2) AS dead_pct
+      FROM pg_stat_user_tables
+      WHERE n_dead_tup > 1000
+      ORDER BY n_dead_tup DESC;
+      ```
+
+      ### Actions:
+      - Run VACUUM ANALYZE on bloated tables
+      - Archive or delete old data
+      - Increase disk size in Cloud SQL
+      - Enable automatic storage increase
+    EOT
+    mime_type = "text/markdown"
+  }
+
+  user_labels = {
+    severity    = "warning"
+    service     = "cloudsql"
     environment = terraform.workspace
   }
 }
