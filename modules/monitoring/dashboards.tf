@@ -26,15 +26,15 @@ resource "google_monitoring_dashboard" "service_health" {
             scorecard = {
               timeSeriesQuery = {
                 timeSeriesFilter = {
-                  # Use histogram metric - ALIGN_COUNT counts observations per interval
+                  # Use gcount metric (gauge count from native histogram) for request counting
                   filter = join(" AND ", [
                     "resource.type=\"prometheus_target\"",
                     "resource.labels.namespace=\"api\"",
-                    "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds/histogram\""
+                    "metric.type=\"prometheus.googleapis.com/http_server_requests_active_seconds_gcount/unknown\""
                   ])
                   aggregation = {
                     alignmentPeriod    = "60s"
-                    perSeriesAligner   = "ALIGN_COUNT"
+                    perSeriesAligner   = "ALIGN_RATE"
                     crossSeriesReducer = "REDUCE_SUM"
                   }
                 }
@@ -50,27 +50,27 @@ resource "google_monitoring_dashboard" "service_health" {
           height = 4
           xPos   = 3
           widget = {
-            title = "Error Rate %"
+            title = "Error Count"
             scorecard = {
               timeSeriesQuery = {
                 timeSeriesFilter = {
-                  # Filter for 5xx status codes using histogram
+                  # Filter for 5xx status codes
                   filter = join(" AND ", [
                     "resource.type=\"prometheus_target\"",
                     "resource.labels.namespace=\"api\"",
-                    "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds/histogram\"",
+                    "metric.type=\"prometheus.googleapis.com/http_server_requests_active_seconds_gcount/unknown\"",
                     "metric.labels.status=monitoring.regex.full_match(\"5.*\")"
                   ])
                   aggregation = {
                     alignmentPeriod    = "60s"
-                    perSeriesAligner   = "ALIGN_COUNT"
+                    perSeriesAligner   = "ALIGN_RATE"
                     crossSeriesReducer = "REDUCE_SUM"
                   }
                 }
               }
               thresholds = [
-                { value = 1, color = "YELLOW", direction = "ABOVE" },
-                { value = 5, color = "RED", direction = "ABOVE" }
+                { value = 0.1, color = "YELLOW", direction = "ABOVE" },
+                { value = 1, color = "RED", direction = "ABOVE" }
               ]
               sparkChartView = {
                 sparkChartType = "SPARK_LINE"
@@ -150,14 +150,15 @@ resource "google_monitoring_dashboard" "service_health" {
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
+                    # Use gcount for request counting
                     filter = join(" AND ", [
                       "resource.type=\"prometheus_target\"",
                       "resource.labels.namespace=\"api\"",
-                      "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds/histogram\""
+                      "metric.type=\"prometheus.googleapis.com/http_server_requests_active_seconds_gcount/unknown\""
                     ])
                     aggregation = {
                       alignmentPeriod    = "60s"
-                      perSeriesAligner   = "ALIGN_COUNT"
+                      perSeriesAligner   = "ALIGN_RATE"
                       crossSeriesReducer = "REDUCE_SUM"
                       groupByFields      = ["metric.labels.service"]
                     }
@@ -166,7 +167,7 @@ resource "google_monitoring_dashboard" "service_health" {
                 plotType = "LINE"
               }]
               yAxis = {
-                label = "Requests/min"
+                label = "Requests/sec"
                 scale = "LINEAR"
               }
             }
@@ -221,15 +222,16 @@ resource "google_monitoring_dashboard" "service_health" {
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
+                    # Use gcount for error counting
                     filter = join(" AND ", [
                       "resource.type=\"prometheus_target\"",
                       "resource.labels.namespace=\"api\"",
-                      "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds/histogram\"",
+                      "metric.type=\"prometheus.googleapis.com/http_server_requests_active_seconds_gcount/unknown\"",
                       "metric.labels.status=monitoring.regex.full_match(\"[45].*\")"
                     ])
                     aggregation = {
                       alignmentPeriod    = "60s"
-                      perSeriesAligner   = "ALIGN_COUNT"
+                      perSeriesAligner   = "ALIGN_RATE"
                       crossSeriesReducer = "REDUCE_SUM"
                       groupByFields      = ["metric.labels.status"]
                     }

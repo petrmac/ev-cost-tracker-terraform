@@ -11,26 +11,25 @@ resource "google_monitoring_alert_policy" "high_error_rate" {
   combiner     = "OR"
 
   conditions {
-    display_name = "5xx errors > 5 per minute for 5 minutes"
+    display_name = "5xx error rate > 0.1/sec for 5 minutes"
 
     condition_threshold {
-      # NOTE: Prometheus histogram metrics use /histogram suffix
-      # ALIGN_COUNT counts the number of observations in the histogram
+      # Use gcount metric for counting requests (histogram doesn't support ALIGN_COUNT)
       filter = join(" AND ", [
         "resource.type=\"prometheus_target\"",
         "resource.labels.namespace=\"api\"",
-        "metric.type=\"prometheus.googleapis.com/http_server_requests_seconds/histogram\"",
+        "metric.type=\"prometheus.googleapis.com/http_server_requests_active_seconds_gcount/unknown\"",
         "metric.labels.status=monitoring.regex.full_match(\"5.*\")"
       ])
 
       aggregations {
         alignment_period     = "60s"
-        per_series_aligner   = "ALIGN_COUNT"
+        per_series_aligner   = "ALIGN_RATE"
         cross_series_reducer = "REDUCE_SUM"
       }
 
       comparison      = "COMPARISON_GT"
-      threshold_value = 5
+      threshold_value = 0.1
       duration        = "300s"
 
       trigger {
@@ -969,6 +968,258 @@ resource "google_monitoring_alert_policy" "cloudsql_high_disk" {
   user_labels = {
     severity    = "warning"
     service     = "cloudsql"
+    environment = terraform.workspace
+  }
+}
+
+# =============================================================================
+# Alert 13: Redis Command Latency High
+# =============================================================================
+resource "google_monitoring_alert_policy" "redis_high_latency" {
+  count        = var.enable_alerts && var.enable_prometheus_alerts ? 1 : 0
+  project      = var.project_id
+  display_name = "Redis Command Latency High"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Redis max command latency > 100ms"
+
+    condition_threshold {
+      # Lettuce Redis client metrics
+      filter = join(" AND ", [
+        "resource.type=\"prometheus_target\"",
+        "metric.type=\"prometheus.googleapis.com/lettuce_command_completion_seconds_max/gauge\""
+      ])
+
+      aggregations {
+        alignment_period   = "60s"
+        per_series_aligner = "ALIGN_MAX"
+      }
+
+      comparison      = "COMPARISON_GT"
+      threshold_value = 0.1
+      duration        = "300s"
+
+      trigger {
+        count = 1
+      }
+    }
+  }
+
+  notification_channels = [
+    google_monitoring_notification_channel.email.id
+  ]
+
+  alert_strategy {
+    auto_close = "1800s"
+  }
+
+  documentation {
+    content   = <<-EOT
+      ## Redis High Latency Alert
+
+      **Severity**: Warning
+      **Impact**: Slow API responses, degraded user experience
+
+      ### Investigation Steps:
+      1. Check Redis pod resource usage
+      2. Review Redis memory usage
+      3. Check for slow commands (KEYS, SCAN on large keyspaces)
+      4. Review network latency between pods
+
+      ### Quick Checks:
+      ```bash
+      # Check Redis pod
+      kubectl get pods -n redis
+      kubectl top pod -n redis
+
+      # Check Redis memory
+      kubectl exec -n redis deployment/redis -- redis-cli INFO memory
+
+      # Check slow log
+      kubectl exec -n redis deployment/redis -- redis-cli SLOWLOG GET 10
+      ```
+
+      ### Common Causes:
+      - Large key scans
+      - Memory pressure causing swapping
+      - Network congestion
+      - Large values being serialized/deserialized
+    EOT
+    mime_type = "text/markdown"
+  }
+
+  user_labels = {
+    severity    = "warning"
+    service     = "redis"
+    environment = terraform.workspace
+  }
+}
+
+# =============================================================================
+# Alert 14: Redis Pod Restarts
+# =============================================================================
+resource "google_monitoring_alert_policy" "redis_restarts" {
+  count        = var.enable_alerts ? 1 : 0
+  project      = var.project_id
+  display_name = "Redis Pod Restarts"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Redis restarts > 2 in 1 hour"
+
+    condition_threshold {
+      filter = join(" AND ", [
+        "resource.type=\"k8s_container\"",
+        "resource.labels.namespace_name=\"redis\"",
+        "metric.type=\"kubernetes.io/container/restart_count\""
+      ])
+
+      aggregations {
+        alignment_period     = "3600s"
+        per_series_aligner   = "ALIGN_DELTA"
+        cross_series_reducer = "REDUCE_SUM"
+      }
+
+      comparison      = "COMPARISON_GT"
+      threshold_value = 2
+      duration        = "0s"
+
+      trigger {
+        count = 1
+      }
+    }
+  }
+
+  notification_channels = [
+    google_monitoring_notification_channel.email.id
+  ]
+
+  alert_strategy {
+    auto_close = "3600s"
+  }
+
+  documentation {
+    content   = <<-EOT
+      ## Redis Pod Restart Alert
+
+      **Severity**: Critical
+      **Impact**: Session data loss, rate limiting reset, cache invalidation
+
+      ### Immediate Actions:
+      1. Check Redis pod events
+      2. Review Redis logs before restart
+      3. Check for OOMKilled events
+      4. Verify persistence configuration
+
+      ### Quick Checks:
+      ```bash
+      # Check pod events
+      kubectl describe pod -n redis -l app=redis
+
+      # Check previous logs
+      kubectl logs -n redis -l app=redis --previous
+
+      # Check memory usage
+      kubectl top pod -n redis
+      ```
+
+      ### Common Causes:
+      - Memory limit exceeded (OOMKilled)
+      - Liveness probe failures
+      - Node eviction
+      - Configuration errors
+    EOT
+    mime_type = "text/markdown"
+  }
+
+  user_labels = {
+    severity    = "critical"
+    service     = "redis"
+    environment = terraform.workspace
+  }
+}
+
+# =============================================================================
+# Alert 15: Redis Memory Usage High
+# =============================================================================
+resource "google_monitoring_alert_policy" "redis_high_memory" {
+  count        = var.enable_alerts ? 1 : 0
+  project      = var.project_id
+  display_name = "Redis Memory Usage High"
+  combiner     = "OR"
+
+  conditions {
+    display_name = "Redis memory > 200MB"
+
+    condition_threshold {
+      filter = join(" AND ", [
+        "resource.type=\"k8s_container\"",
+        "resource.labels.namespace_name=\"redis\"",
+        "metric.type=\"kubernetes.io/container/memory/used_bytes\""
+      ])
+
+      aggregations {
+        alignment_period   = "60s"
+        per_series_aligner = "ALIGN_MEAN"
+      }
+
+      # Alert at 200MB (Redis pod typically has 256Mi limit)
+      comparison      = "COMPARISON_GT"
+      threshold_value = 200000000
+      duration        = "300s"
+
+      trigger {
+        count = 1
+      }
+    }
+  }
+
+  notification_channels = [
+    google_monitoring_notification_channel.email.id
+  ]
+
+  alert_strategy {
+    auto_close = "1800s"
+  }
+
+  documentation {
+    content   = <<-EOT
+      ## Redis High Memory Alert
+
+      **Severity**: Warning
+      **Impact**: Risk of OOMKilled, potential data loss
+
+      ### Investigation Steps:
+      1. Check what's consuming memory
+      2. Review TTL policies
+      3. Check for memory leaks in session storage
+      4. Review rate limiting key accumulation
+
+      ### Quick Checks:
+      ```bash
+      # Check Redis memory details
+      kubectl exec -n redis deployment/redis -- redis-cli INFO memory
+
+      # Check biggest keys
+      kubectl exec -n redis deployment/redis -- redis-cli --bigkeys
+
+      # Check key count by pattern
+      kubectl exec -n redis deployment/redis -- redis-cli DBSIZE
+      ```
+
+      ### Actions:
+      - Review and reduce TTLs if appropriate
+      - Clear stale rate limiting keys
+      - Consider increasing memory limit
+      - Enable maxmemory-policy eviction
+    EOT
+    mime_type = "text/markdown"
+  }
+
+  user_labels = {
+    severity    = "warning"
+    service     = "redis"
     environment = terraform.workspace
   }
 }
