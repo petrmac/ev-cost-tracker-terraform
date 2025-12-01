@@ -421,10 +421,10 @@ resource "google_monitoring_dashboard" "business_metrics" {
             scorecard = {
               timeSeriesQuery = {
                 timeSeriesFilter = {
-                  # ev_cost_sessions_total is the actual metric name
+                  # Code uses ev_cost.sessions.created -> ev_cost_sessions_created_total
                   filter = join(" AND ", [
                     "resource.type=\"prometheus_target\"",
-                    "metric.type=\"prometheus.googleapis.com/ev_cost_sessions_total/counter\""
+                    "metric.type=\"prometheus.googleapis.com/ev_cost_sessions_created_total/counter\""
                   ])
                   aggregation = {
                     alignmentPeriod    = "86400s"
@@ -448,14 +448,14 @@ resource "google_monitoring_dashboard" "business_metrics" {
             scorecard = {
               timeSeriesQuery = {
                 timeSeriesFilter = {
-                  # Use histogram ALIGN_COUNT to count cost calculation operations
+                  # ev_cost_calculation_success_total is the actual metric name
                   filter = join(" AND ", [
                     "resource.type=\"prometheus_target\"",
-                    "metric.type=\"prometheus.googleapis.com/ev_cost_cost_calculation_duration_seconds/histogram\""
+                    "metric.type=\"prometheus.googleapis.com/ev_cost_calculation_success_total/counter\""
                   ])
                   aggregation = {
                     alignmentPeriod    = "86400s"
-                    perSeriesAligner   = "ALIGN_COUNT"
+                    perSeriesAligner   = "ALIGN_DELTA"
                     crossSeriesReducer = "REDUCE_SUM"
                   }
                 }
@@ -505,9 +505,10 @@ resource "google_monitoring_dashboard" "business_metrics" {
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
+                    # Code uses ev_cost.sessions.created -> ev_cost_sessions_created_total
                     filter = join(" AND ", [
                       "resource.type=\"prometheus_target\"",
-                      "metric.type=\"prometheus.googleapis.com/ev_cost_sessions_total/counter\""
+                      "metric.type=\"prometheus.googleapis.com/ev_cost_sessions_created_total/counter\""
                     ])
                     aggregation = {
                       alignmentPeriod    = "3600s"
@@ -531,19 +532,19 @@ resource "google_monitoring_dashboard" "business_metrics" {
           xPos   = 6
           yPos   = 4
           widget = {
-            title = "Session Creation Duration (P95)"
+            title = "Session Creation Duration (Max)"
             xyChart = {
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
+                    # Use _max gauge instead of histogram for reliability
                     filter = join(" AND ", [
                       "resource.type=\"prometheus_target\"",
-                      "metric.type=\"prometheus.googleapis.com/ev_cost_sessions_create_duration_seconds/histogram\""
+                      "metric.type=\"prometheus.googleapis.com/ev_cost_sessions_create_duration_seconds_max/gauge\""
                     ])
                     aggregation = {
-                      alignmentPeriod    = "60s"
-                      perSeriesAligner   = "ALIGN_DELTA"
-                      crossSeriesReducer = "REDUCE_PERCENTILE_95"
+                      alignmentPeriod  = "60s"
+                      perSeriesAligner = "ALIGN_MAX"
                     }
                   }
                 }
@@ -595,20 +596,19 @@ resource "google_monitoring_dashboard" "business_metrics" {
           xPos   = 6
           yPos   = 8
           widget = {
-            title = "Cost Calculation Duration (P95)"
+            title = "Cost Calculation Duration (Max)"
             xyChart = {
               dataSets = [{
                 timeSeriesQuery = {
                   timeSeriesFilter = {
-                    # Use cost calculation histogram to show performance
+                    # Use _max gauge instead of histogram for reliability
                     filter = join(" AND ", [
                       "resource.type=\"prometheus_target\"",
-                      "metric.type=\"prometheus.googleapis.com/ev_cost_cost_calculation_duration_seconds/histogram\""
+                      "metric.type=\"prometheus.googleapis.com/ev_cost_cost_calculation_duration_seconds_max/gauge\""
                     ])
                     aggregation = {
-                      alignmentPeriod    = "60s"
-                      perSeriesAligner   = "ALIGN_DELTA"
-                      crossSeriesReducer = "REDUCE_PERCENTILE_95"
+                      alignmentPeriod  = "60s"
+                      perSeriesAligner = "ALIGN_MAX"
                     }
                   }
                 }
