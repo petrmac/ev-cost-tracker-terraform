@@ -110,3 +110,15 @@ variable "enable_prometheus_alerts" {
   type        = bool
   default     = false
 }
+
+variable "api_domains" {
+  description = "API domains to monitor with HTTPS uptime checks and SSL expiry alerts"
+  type        = list(string)
+  default     = ["api.evtracker.cz", "api.evtracker.online", "api.evtracker.cloud"]
+}
+
+variable "metric_ingestion_rate_threshold" {
+  description = "Alert when metric samples ingestion rate exceeds this value (samples/sec). Catches silent cost spikes from GKE upgrades enabling extra monitoring packages."
+  type        = number
+  default     = 100
+}
